@@ -2,9 +2,6 @@
 # DASHBOARD ANALISIS SOAL - GOOGLE COLAB VERSION
 # =====================================================
 
-# Install library (jika belum ada)
-!pip install plotly openpyxl scikit-learn --quiet
-
 import pandas as pd
 import numpy as np
 import plotly.express as px
