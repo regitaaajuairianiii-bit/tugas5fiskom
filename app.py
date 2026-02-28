@@ -1,6 +1,6 @@
 # =========================================
 # DASHBOARD ANALISIS DATA SIMULASI SISWA
-# VERSI AKADEMIS LENGKAP
+# VERSI NILAI ASLI BERDASARKAN EXCEL
 # =========================================
 
 import streamlit as st
@@ -45,12 +45,11 @@ if uploaded_file:
     jumlah_siswa = len(df)
     jumlah_soal = data.shape[1]
 
-    skor_min = data.min().min()
-    skor_max = data.max().max()
-
-    nilai_maks_teoritis = jumlah_soal * skor_max
-
+    # ===============================
+    # HITUNG NILAI TOTAL (ASLI)
+    # ===============================
     df["Total_Nilai"] = data.sum(axis=1)
+
     rata_kelas = df["Total_Nilai"].mean()
     median_nilai = df["Total_Nilai"].median()
     nilai_tertinggi = df["Total_Nilai"].max()
@@ -72,9 +71,9 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # B. DISTRIBUSI SOAL
+    # B. DISTRIBUSI SOAL (RATA-RATA SKOR)
     # ======================================================
-    st.header("B. Distribusi Soal (Rata-rata Skor)")
+    st.header("B. Distribusi Soal (Rata-rata Skor per Soal)")
 
     mean_per_soal = data.mean().reset_index()
     mean_per_soal.columns = ["Soal", "Rata-rata Skor"]
@@ -90,7 +89,8 @@ if uploaded_file:
     )
 
     fig1.update_layout(
-        yaxis=dict(range=[skor_min, max_mean + 0.05])
+        yaxis=dict(range=[mean_per_soal["Rata-rata Skor"].min(),
+                          max_mean + 0.05])
     )
 
     fig1.update_traces(texttemplate='%{y:.2f}', textposition='outside')
@@ -109,7 +109,7 @@ if uploaded_file:
 
     for col in data.columns:
         skor_item = data[col]
-        p_value = skor_item.mean()
+        indeks_kesukaran = skor_item.mean()
 
         df_temp = pd.DataFrame({
             "item": skor_item,
@@ -117,14 +117,14 @@ if uploaded_file:
         }).sort_values("total", ascending=False)
 
         n = int(len(df_temp) * 0.27)
-        discrimination = df_temp.head(n)["item"].mean() - df_temp.tail(n)["item"].mean()
-        item_total_corr = skor_item.corr(total_score)
+        daya_pembeda = df_temp.head(n)["item"].mean() - df_temp.tail(n)["item"].mean()
+        korelasi_item_total = skor_item.corr(total_score)
 
         hasil_item.append({
             "Soal": col,
-            "Indeks Kesukaran": round(p_value,3),
-            "Daya Pembeda": round(discrimination,3),
-            "Korelasi Item-Total": round(item_total_corr,3)
+            "Indeks Kesukaran": round(indeks_kesukaran,3),
+            "Daya Pembeda": round(daya_pembeda,3),
+            "Korelasi Item-Total": round(korelasi_item_total,3)
         })
 
     item_df = pd.DataFrame(hasil_item)
@@ -135,12 +135,14 @@ if uploaded_file:
     colA, colB = st.columns(2)
 
     colA.plotly_chart(
-        px.histogram(data[soal_pilih], color_discrete_sequence=["#A5B4FC"]),
+        px.histogram(data[soal_pilih],
+                     color_discrete_sequence=["#A5B4FC"]),
         use_container_width=True
     )
 
     colB.plotly_chart(
-        px.scatter(x=total_score, y=data[soal_pilih],
+        px.scatter(x=total_score,
+                   y=data[soal_pilih],
                    color_discrete_sequence=["#FBCFE8"]),
         use_container_width=True
     )
@@ -165,8 +167,11 @@ if uploaded_file:
         inertia.append(model.inertia_)
         silhouette_scores.append(silhouette_score(X_scaled, labels))
 
-    st.plotly_chart(px.line(x=list(K_range), y=inertia, markers=True))
-    st.plotly_chart(px.line(x=list(K_range), y=silhouette_scores, markers=True))
+    st.plotly_chart(px.line(x=list(K_range), y=inertia, markers=True),
+                    use_container_width=True)
+
+    st.plotly_chart(px.line(x=list(K_range), y=silhouette_scores, markers=True),
+                    use_container_width=True)
 
     st.divider()
 
@@ -229,7 +234,7 @@ Kelompok ini {karakter}
     st.divider()
 
     # ======================================================
-    # F. REGRESI
+    # F. ANALISIS REGRESI
     # ======================================================
     st.header("F. Analisis Regresi")
 
@@ -242,27 +247,20 @@ Kelompok ini {karakter}
     st.divider()
 
     # ======================================================
-    # G. KESIMPULAN BERBASIS DATA
+    # G. KESIMPULAN BERBASIS NILAI ASLI
     # ======================================================
     st.header("G. Kesimpulan Analitis")
 
-    proporsi = rata_kelas / nilai_maks_teoritis
     persen_diatas_rata = (df["Total_Nilai"] > rata_kelas).mean() * 100
 
-    if proporsi >= 0.75:
-        kategori = "cenderung mudah"
-    elif proporsi >= 0.5:
-        kategori = "tingkat kesulitan sedang"
-    else:
-        kategori = "cenderung sulit"
-
     st.success(f"""
-Rata-rata total siswa adalah {round(rata_kelas,2)} dari maksimum teoritis {nilai_maks_teoritis}.
-Proporsi pencapaian terhadap skor maksimum sebesar {round(proporsi*100,2)}%.
-Sebanyak {round(persen_diatas_rata,2)}% siswa berada di atas rata-rata kelas.
+Rata-rata nilai siswa adalah {round(rata_kelas,2)}.
+Nilai tertinggi adalah {round(nilai_tertinggi,2)} dan nilai terendah {round(nilai_terendah,2)}.
 
-Distribusi skor per soal menunjukkan kecenderungan nilai berada pada rentang atas.
-Berdasarkan indikator tersebut, tes dapat dikategorikan sebagai **{kategori}**.
+Sebanyak {round(persen_diatas_rata,2)}% siswa memperoleh nilai di atas rata-rata kelas.
+
+Distribusi nilai menunjukkan pola sebaran aktual berdasarkan data Excel.
+Interpretasi tingkat kesulitan tes didasarkan pada distribusi nilai nyata, bukan asumsi skala teoritis.
 """)
 
 else:
