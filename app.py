@@ -9,6 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 import statsmodels.api as sm
 
 st.set_page_config(
@@ -131,16 +132,13 @@ if uploaded_file:
     item_df = pd.DataFrame(hasil_item)
     st.dataframe(item_df, use_container_width=True)
 
-    # ===============================
-    # PILIH SOAL
-    # ===============================
+    # Pilih soal
     soal_pilih = st.selectbox("🎯 Pilih Soal untuk Analisis Detail", data.columns)
 
     skor_soal = data[soal_pilih]
 
     colA, colB = st.columns(2)
 
-    # Distribusi jawaban soal
     fig_dist = px.histogram(
         skor_soal,
         nbins=5,
@@ -149,7 +147,6 @@ if uploaded_file:
     fig_dist.update_layout(title=f"Distribusi Jawaban {soal_pilih}")
     colA.plotly_chart(fig_dist, use_container_width=True)
 
-    # Scatter terhadap total nilai
     fig_scatter = px.scatter(
         x=total_score,
         y=skor_soal,
@@ -181,7 +178,7 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # E. CLUSTERING (FIXED)
+    # E. SEGMENTASI SISWA (PCA + CLUSTERING)
     # ======================================================
     st.header("E. Segmentasi Siswa")
 
@@ -189,17 +186,54 @@ if uploaded_file:
     X_scaled = scaler.fit_transform(data)
 
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    df["Cluster"] = kmeans.fit_predict(X_scaled).astype(str)
+    cluster_labels = kmeans.fit_predict(X_scaled)
+
+    df["Cluster"] = cluster_labels.astype(str)
+
+    # PCA
+    pca = PCA(n_components=2)
+    principal_components = pca.fit_transform(X_scaled)
+
+    pca_df = pd.DataFrame(
+        principal_components,
+        columns=["PC1", "PC2"]
+    )
+
+    pca_df["Cluster"] = df["Cluster"]
 
     fig_cluster = px.scatter(
-        df,
-        x=data.columns[0],
-        y=data.columns[1],
+        pca_df,
+        x="PC1",
+        y="PC2",
         color="Cluster",
         color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
     )
 
+    fig_cluster.update_layout(
+        title="Visualisasi Cluster Siswa (PCA Projection)",
+        template="plotly_white"
+    )
+
     st.plotly_chart(fig_cluster, use_container_width=True)
+
+    # Distribusi cluster
+    st.subheader("Distribusi Kelompok Siswa")
+
+    cluster_count = df["Cluster"].value_counts().reset_index()
+    cluster_count.columns = ["Cluster", "Jumlah"]
+    cluster_count["Persentase (%)"] = round(
+        cluster_count["Jumlah"] / jumlah_siswa * 100, 2
+    )
+
+    fig_pie = px.pie(
+        cluster_count,
+        names="Cluster",
+        values="Jumlah",
+        color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
+    )
+
+    st.plotly_chart(fig_pie, use_container_width=True)
+    st.dataframe(cluster_count, use_container_width=True)
 
     st.divider()
 
@@ -227,7 +261,7 @@ if uploaded_file:
     if rata_global >= 0.75:
         kesimpulan = "Tes cenderung mudah."
     elif rata_global >= 0.5:
-        kesimpulan = "Tes tingkat kesulitan sedang."
+        kesimpulan = "Tes berada pada tingkat kesulitan sedang."
     else:
         kesimpulan = "Tes cenderung sulit."
 
@@ -237,7 +271,7 @@ if uploaded_file:
     Saran:
     - Pertahankan soal dengan daya pembeda tinggi
     - Revisi soal dengan korelasi rendah
-    - Gunakan clustering untuk strategi remedial
+    - Gunakan hasil clustering untuk strategi remedial
     """)
 
 else:
