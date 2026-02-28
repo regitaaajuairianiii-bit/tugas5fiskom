@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
 import statsmodels.api as sm
 
 st.set_page_config(
@@ -18,7 +19,7 @@ st.set_page_config(
 )
 
 # ===============================
-# STYLE SOFT ACADEMIC
+# STYLE
 # ===============================
 st.markdown("""
     <style>
@@ -39,8 +40,8 @@ st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 st.markdown("""
 ### 👤 Identitas Mahasiswa  
 **Nama : Regita Juairiani**  
-**NIM : 06111282429048**  
-**Kelas : B / Indralaya**  
+**NIM : __________________**  
+**Kelas : __________________**  
 **Mata Kuliah : Fisika Komputasi**
 """)
 
@@ -62,18 +63,21 @@ if uploaded_file:
     # ======================================================
     st.header("A. Statistik Umum")
 
+    df["Total_Nilai"] = data.sum(axis=1)
+
     jumlah_siswa = len(df)
     jumlah_soal = data.shape[1]
-    rata_kelas = round(data.mean().mean(), 2)
-    nilai_tertinggi = data.max().max()
-    nilai_terendah = data.min().min()
+    rata_kelas = df["Total_Nilai"].mean()
+    median_nilai = df["Total_Nilai"].median()
+    nilai_tertinggi = df["Total_Nilai"].max()
+    nilai_terendah = df["Total_Nilai"].min()
 
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Jumlah Siswa", jumlah_siswa)
     col2.metric("Jumlah Soal", jumlah_soal)
-    col3.metric("Rata-rata", rata_kelas)
-    col4.metric("Nilai Tertinggi", nilai_tertinggi)
-    col5.metric("Nilai Terendah", nilai_terendah)
+    col3.metric("Rata-rata", round(rata_kelas,2))
+    col4.metric("Nilai Tertinggi", round(nilai_tertinggi,2))
+    col5.metric("Nilai Terendah", round(nilai_terendah,2))
 
     st.divider()
 
@@ -81,8 +85,6 @@ if uploaded_file:
     # B. DISTRIBUSI NILAI
     # ======================================================
     st.header("B. Distribusi Nilai Siswa")
-
-    df["Total_Nilai"] = data.sum(axis=1)
 
     fig1 = px.histogram(
         df,
@@ -113,60 +115,68 @@ if uploaded_file:
 
         n = int(len(df_temp) * 0.27)
 
-        kelompok_atas = df_temp.head(n)["item"].mean()
-        kelompok_bawah = df_temp.tail(n)["item"].mean()
-
-        discrimination = kelompok_atas - kelompok_bawah
+        discrimination = df_temp.head(n)["item"].mean() - df_temp.tail(n)["item"].mean()
         item_total_corr = skor_item.corr(total_score)
 
         hasil_item.append({
             "Soal": col,
-            "Indeks Kesukaran": round(p_value, 3),
-            "Daya Pembeda": round(discrimination, 3),
-            "Korelasi Item-Total": round(item_total_corr, 3)
+            "Indeks Kesukaran": round(p_value,3),
+            "Daya Pembeda": round(discrimination,3),
+            "Korelasi Item-Total": round(item_total_corr,3)
         })
 
     item_df = pd.DataFrame(hasil_item)
     st.dataframe(item_df, use_container_width=True)
 
-    soal_pilih = st.selectbox("🎯 Pilih Soal untuk Analisis Detail", data.columns)
+    soal_pilih = st.selectbox("Pilih Soal untuk Analisis Detail", data.columns)
 
     colA, colB = st.columns(2)
 
-    fig_dist = px.histogram(
-        data[soal_pilih],
-        nbins=5,
-        color_discrete_sequence=["#A5B4FC"]
+    colA.plotly_chart(
+        px.histogram(data[soal_pilih], color_discrete_sequence=["#A5B4FC"]),
+        use_container_width=True
     )
-    colA.plotly_chart(fig_dist, use_container_width=True)
 
-    fig_scatter = px.scatter(
-        x=total_score,
-        y=data[soal_pilih],
-        color_discrete_sequence=["#FBCFE8"]
+    colB.plotly_chart(
+        px.scatter(x=total_score, y=data[soal_pilih],
+                   color_discrete_sequence=["#FBCFE8"]),
+        use_container_width=True
     )
-    colB.plotly_chart(fig_scatter, use_container_width=True)
 
     st.divider()
 
     # ======================================================
-    # D. KORELASI
+    # D. VALIDASI CLUSTER
     # ======================================================
-    st.header("D. Korelasi Antar Soal")
-
-    corr = data.corr()
-    fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale="Blues")
-    st.plotly_chart(fig_corr, use_container_width=True)
-
-    st.divider()
-
-    # ======================================================
-    # E. SEGMENTASI SISWA (FINAL UPGRADE)
-    # ======================================================
-    st.header("E. Segmentasi Siswa")
+    st.header("D. Validasi Jumlah Cluster")
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(data)
+
+    inertia = []
+    silhouette_scores = []
+    K_range = range(2,6)
+
+    for k in K_range:
+        model = KMeans(n_clusters=k, random_state=42, n_init=10)
+        labels = model.fit_predict(X_scaled)
+        inertia.append(model.inertia_)
+        silhouette_scores.append(silhouette_score(X_scaled, labels))
+
+    st.plotly_chart(px.line(x=list(K_range), y=inertia, markers=True,
+                            title="Elbow Method"),
+                    use_container_width=True)
+
+    st.plotly_chart(px.line(x=list(K_range), y=silhouette_scores, markers=True,
+                            title="Silhouette Score"),
+                    use_container_width=True)
+
+    st.divider()
+
+    # ======================================================
+    # E. SEGMENTASI SISWA
+    # ======================================================
+    st.header("E. Segmentasi Siswa")
 
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
     df["Cluster"] = kmeans.fit_predict(X_scaled)
@@ -177,23 +187,22 @@ if uploaded_file:
 
     pca_df = pd.DataFrame(
         components,
-        columns=[
-            f"PC1 ({round(explained_var[0]*100,2)}%)",
-            f"PC2 ({round(explained_var[1]*100,2)}%)"
-        ]
+        columns=[f"PC1 ({round(explained_var[0]*100,2)}%)",
+                 f"PC2 ({round(explained_var[1]*100,2)}%)"]
     )
 
     pca_df["Cluster"] = df["Cluster"].astype(str)
 
     centroids_pca = pca.transform(kmeans.cluster_centers_)
-    centroid_df = pd.DataFrame(centroids_pca, columns=pca_df.columns[:2])
+    centroid_df = pd.DataFrame(centroids_pca,
+                               columns=pca_df.columns[:2])
 
     fig_cluster = px.scatter(
         pca_df,
         x=pca_df.columns[0],
         y=pca_df.columns[1],
         color="Cluster",
-        color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
+        color_discrete_sequence=["#A5B4FC","#FBCFE8","#86EFAC"]
     )
 
     fig_cluster.add_trace(
@@ -208,18 +217,16 @@ if uploaded_file:
 
     st.plotly_chart(fig_cluster, use_container_width=True)
 
-    # ======================================================
-    # KARAKTERISTIK CLUSTER
-    # ======================================================
+    # Ringkasan Cluster
     st.subheader("Makna dan Karakteristik Tiap Cluster")
 
     cluster_summary = df.groupby("Cluster")["Total_Nilai"].agg(["count","mean"]).reset_index()
-    cluster_summary.columns = ["Cluster","Jumlah Siswa","Rata-rata Total Nilai"]
+    cluster_summary.columns = ["Cluster","Jumlah Siswa","Rata-rata Nilai"]
 
     mean_global = df["Total_Nilai"].mean()
     std_global = df["Total_Nilai"].std()
 
-    def kategori_cluster(x):
+    def kategori(x):
         if x >= mean_global + 0.3*std_global:
             return "Siswa Berprestasi"
         elif x <= mean_global - 0.3*std_global:
@@ -227,21 +234,12 @@ if uploaded_file:
         else:
             return "Siswa Stabil"
 
-    cluster_summary["Keterangan"] = cluster_summary["Rata-rata Total Nilai"].apply(kategori_cluster)
+    cluster_summary["Keterangan"] = cluster_summary["Rata-rata Nilai"].apply(kategori)
     cluster_summary["Persentase (%)"] = round(
         cluster_summary["Jumlah Siswa"]/jumlah_siswa*100,2
     )
 
     st.dataframe(cluster_summary, use_container_width=True)
-
-    fig_pie = px.pie(
-        cluster_summary,
-        names="Cluster",
-        values="Jumlah Siswa",
-        color_discrete_sequence=["#A5B4FC","#FBCFE8","#86EFAC"]
-    )
-
-    st.plotly_chart(fig_pie, use_container_width=True)
 
     st.divider()
 
@@ -251,33 +249,37 @@ if uploaded_file:
     st.header("F. Analisis Regresi")
 
     if data.shape[1] > 1:
-        X = sm.add_constant(data.iloc[:, :-1])
-        y = data.iloc[:, -1]
-        model = sm.OLS(y, X).fit()
+        X = sm.add_constant(data.iloc[:,:-1])
+        y = data.iloc[:,-1]
+        model = sm.OLS(y,X).fit()
         st.metric("R-Squared Model", round(model.rsquared,3))
 
     st.divider()
 
     # ======================================================
-    # G. KESIMPULAN
+    # G. KESIMPULAN BERBASIS DATA
     # ======================================================
-    st.header("G. Kesimpulan dan Saran")
+    st.header("G. Kesimpulan")
 
-    if rata_kelas >= 0.75:
-        kesimpulan = "Tes cenderung mudah."
-    elif rata_kelas >= 0.5:
-        kesimpulan = "Tes tingkat kesulitan sedang."
+    proporsi_tinggi = round(
+        (df["Total_Nilai"] > mean_global).mean()*100,2
+    )
+
+    if rata_kelas >= data.shape[1]*0.75:
+        tingkat = "cenderung mudah"
+    elif rata_kelas >= data.shape[1]*0.5:
+        tingkat = "tingkat kesulitan sedang"
     else:
-        kesimpulan = "Tes cenderung sulit."
+        tingkat = "cenderung sulit"
 
-    st.success(f"Kesimpulan: {kesimpulan}")
+    st.success(f"""
+Rata-rata kelas = {round(rata_kelas,2)}  
+Median = {round(median_nilai,2)}  
+{proporsi_tinggi}% siswa berada di atas rata-rata.  
 
-    st.info("""
-Saran:
-- Pertahankan soal dengan daya pembeda tinggi
-- Revisi soal dengan korelasi rendah
-- Gunakan hasil clustering untuk strategi diferensiasi pembelajaran
+Berdasarkan distribusi nilai dan proporsi tersebut,
+tes dapat dikategorikan sebagai **{tingkat}**.
 """)
 
 else:
-    st.warning("Silakan upload file Excel untuk memulai analisis.")
+    st.warning("Upload file Excel untuk memulai analisis.")
