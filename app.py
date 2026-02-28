@@ -17,26 +17,18 @@ st.set_page_config(
 )
 
 # ===============================
-# SOFT ACADEMIC STYLE
+# SOFT STYLE
 # ===============================
 st.markdown("""
     <style>
-    .main {
-        background-color: #F9FAFB;
-    }
-    h1 {
-        text-align: center;
-        font-weight: 700;
-        color: #334155;
-    }
-    h2 {
-        color: #475569;
-    }
+    .main {background-color: #F8FAFC;}
+    h1 {text-align:center; color:#334155;}
+    h2 {color:#475569;}
     .stMetric {
-        background-color: #FFFFFF;
-        padding: 15px;
-        border-radius: 15px;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+        background-color:#FFFFFF;
+        padding:15px;
+        border-radius:12px;
+        box-shadow:0px 3px 10px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -98,15 +90,14 @@ if uploaded_file:
         df,
         x="Total_Nilai",
         nbins=10,
-        color_discrete_sequence=["#94A3B8"]  # soft blue-gray
+        color_discrete_sequence=["#94A3B8"]
     )
-    fig1.update_layout(template="plotly_white")
     st.plotly_chart(fig1, use_container_width=True)
 
     st.divider()
 
     # ======================================================
-    # C. ANALISIS PER SOAL
+    # C. ANALISIS PER SOAL (INTERAKTIF)
     # ======================================================
     st.header("C. Analisis Per Soal")
 
@@ -138,42 +129,43 @@ if uploaded_file:
         })
 
     item_df = pd.DataFrame(hasil_item)
-
     st.dataframe(item_df, use_container_width=True)
 
-    # 🔹 Grafik Indeks Kesukaran
-    fig_kesukaran = px.bar(
-        item_df,
-        x="Soal",
-        y="Indeks Kesukaran",
-        color_discrete_sequence=["#A5B4FC"]  # soft indigo
-    )
-    st.plotly_chart(fig_kesukaran, use_container_width=True)
+    # ===============================
+    # PILIH SOAL
+    # ===============================
+    soal_pilih = st.selectbox("🎯 Pilih Soal untuk Analisis Detail", data.columns)
 
-    # 🔹 Grafik Daya Pembeda
-    fig_discrimination = px.bar(
-        item_df,
-        x="Soal",
-        y="Daya Pembeda",
-        color_discrete_sequence=["#FBCFE8"]  # soft pink
-    )
-    st.plotly_chart(fig_discrimination, use_container_width=True)
+    skor_soal = data[soal_pilih]
 
-    # 🔹 Scatter hubungan indeks & daya pembeda
+    colA, colB = st.columns(2)
+
+    # Distribusi jawaban soal
+    fig_dist = px.histogram(
+        skor_soal,
+        nbins=5,
+        color_discrete_sequence=["#A5B4FC"]
+    )
+    fig_dist.update_layout(title=f"Distribusi Jawaban {soal_pilih}")
+    colA.plotly_chart(fig_dist, use_container_width=True)
+
+    # Scatter terhadap total nilai
     fig_scatter = px.scatter(
-        item_df,
-        x="Indeks Kesukaran",
-        y="Daya Pembeda",
-        text="Soal",
-        color_discrete_sequence=["#86EFAC"]  # soft green
+        x=total_score,
+        y=skor_soal,
+        color_discrete_sequence=["#FBCFE8"]
     )
-    fig_scatter.update_traces(textposition="top center")
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    fig_scatter.update_layout(
+        title=f"Hubungan {soal_pilih} dengan Total Nilai",
+        xaxis_title="Total Nilai",
+        yaxis_title="Skor Soal"
+    )
+    colB.plotly_chart(fig_scatter, use_container_width=True)
 
     st.divider()
 
     # ======================================================
-    # D. KORELASI ANTAR SOAL
+    # D. KORELASI
     # ======================================================
     st.header("D. Korelasi Antar Soal")
 
@@ -189,7 +181,7 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # E. CLUSTERING
+    # E. CLUSTERING (FIXED)
     # ======================================================
     st.header("E. Segmentasi Siswa")
 
@@ -197,15 +189,16 @@ if uploaded_file:
     X_scaled = scaler.fit_transform(data)
 
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    df["Cluster"] = kmeans.fit_predict(X_scaled)
+    df["Cluster"] = kmeans.fit_predict(X_scaled).astype(str)
 
     fig_cluster = px.scatter(
         df,
         x=data.columns[0],
         y=data.columns[1],
         color="Cluster",
-        color_continuous_scale="Pastel"
+        color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
     )
+
     st.plotly_chart(fig_cluster, use_container_width=True)
 
     st.divider()
@@ -232,20 +225,19 @@ if uploaded_file:
     rata_global = data.mean().mean()
 
     if rata_global >= 0.75:
-        kesimpulan = "Tes cenderung mudah bagi mayoritas siswa."
+        kesimpulan = "Tes cenderung mudah."
     elif rata_global >= 0.5:
-        kesimpulan = "Tes berada pada tingkat kesulitan sedang."
+        kesimpulan = "Tes tingkat kesulitan sedang."
     else:
-        kesimpulan = "Tes cenderung sulit bagi siswa."
+        kesimpulan = "Tes cenderung sulit."
 
     st.success(f"Kesimpulan: {kesimpulan}")
 
     st.info("""
-    **Saran:**
-    - Pertahankan soal dengan daya pembeda tinggi  
-    - Revisi soal dengan korelasi item-total rendah  
-    - Seimbangkan tingkat kesulitan  
-    - Gunakan hasil clustering untuk strategi remedial  
+    Saran:
+    - Pertahankan soal dengan daya pembeda tinggi
+    - Revisi soal dengan korelasi rendah
+    - Gunakan clustering untuk strategi remedial
     """)
 
 else:
