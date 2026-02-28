@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # ===============================
-# STYLE
+# STYLE SOFT COLOR
 # ===============================
 st.markdown("""
     <style>
@@ -40,8 +40,8 @@ st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 st.markdown("""
 ### 👤 Identitas Mahasiswa  
 **Nama : Regita Juairiani**  
-**NIM : 06111282429048**  
-**Kelas : B / Indralaya**  
+**NIM : __________________**  
+**Kelas : __________________**  
 **Mata Kuliah : Fisika Komputasi**
 """)
 
@@ -82,34 +82,30 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-# B. DISTRIBUSI SOAL (RATA-RATA SKOR PER SOAL)
-# ======================================================
-st.header("B. Distribusi Soal (Rata-rata Skor per Soal)")
+    # B. DISTRIBUSI SOAL (RATA-RATA SKOR PER SOAL)
+    # ======================================================
+    st.header("B. Distribusi Soal (Rata-rata Skor per Soal)")
 
-mean_per_soal = data.mean().reset_index()
-mean_per_soal.columns = ["Soal", "Rata-rata Skor"]
+    mean_per_soal = data.mean().reset_index()
+    mean_per_soal.columns = ["Soal", "Rata-rata Skor"]
 
-fig1 = px.bar(
-    mean_per_soal,
-    x="Soal",
-    y="Rata-rata Skor",
-    color="Rata-rata Skor",
-    color_continuous_scale="Blues"
-)
+    fig1 = px.bar(
+        mean_per_soal,
+        x="Soal",
+        y="Rata-rata Skor",
+        color="Rata-rata Skor",
+        color_continuous_scale="Blues"
+    )
 
-fig1.update_layout(
-    yaxis=dict(range=[0,1]),
-    xaxis_title="Nomor Soal",
-    yaxis_title="Rata-rata Skor"
-)
+    fig1.update_layout(
+        yaxis=dict(range=[0,1]),
+        xaxis_title="Nomor Soal",
+        yaxis_title="Rata-rata Skor"
+    )
 
-st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, use_container_width=True)
 
-st.info("""
-Grafik ini menunjukkan tingkat kesukaran tiap soal.
-Semakin mendekati 1 → soal semakin mudah.
-Semakin mendekati 0 → soal semakin sulit.
-""")
+    st.info("Mean mendekati 1 → soal mudah | Mendekati 0 → soal sulit")
 
     st.divider()
 
@@ -131,7 +127,6 @@ Semakin mendekati 0 → soal semakin sulit.
         }).sort_values("total", ascending=False)
 
         n = int(len(df_temp) * 0.27)
-
         discrimination = df_temp.head(n)["item"].mean() - df_temp.tail(n)["item"].mean()
         item_total_corr = skor_item.corr(total_score)
 
@@ -150,7 +145,8 @@ Semakin mendekati 0 → soal semakin sulit.
     colA, colB = st.columns(2)
 
     colA.plotly_chart(
-        px.histogram(data[soal_pilih], color_discrete_sequence=["#A5B4FC"]),
+        px.histogram(data[soal_pilih],
+                     color_discrete_sequence=["#A5B4FC"]),
         use_container_width=True
     )
 
@@ -193,7 +189,7 @@ Semakin mendekati 0 → soal semakin sulit.
     # ======================================================
     # E. SEGMENTASI SISWA
     # ======================================================
-    st.header("E. Segmentasi Siswa")
+    st.header("E. Segmentasi Siswa (K-Means + PCA)")
 
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
     df["Cluster"] = kmeans.fit_predict(X_scaled)
@@ -207,12 +203,9 @@ Semakin mendekati 0 → soal semakin sulit.
         columns=[f"PC1 ({round(explained_var[0]*100,2)}%)",
                  f"PC2 ({round(explained_var[1]*100,2)}%)"]
     )
-
     pca_df["Cluster"] = df["Cluster"].astype(str)
 
     centroids_pca = pca.transform(kmeans.cluster_centers_)
-    centroid_df = pd.DataFrame(centroids_pca,
-                               columns=pca_df.columns[:2])
 
     fig_cluster = px.scatter(
         pca_df,
@@ -224,8 +217,8 @@ Semakin mendekati 0 → soal semakin sulit.
 
     fig_cluster.add_trace(
         go.Scatter(
-            x=centroid_df.iloc[:,0],
-            y=centroid_df.iloc[:,1],
+            x=centroids_pca[:,0],
+            y=centroids_pca[:,1],
             mode="markers",
             marker=dict(symbol="x", size=18, color="black"),
             name="Centroid"
@@ -235,8 +228,6 @@ Semakin mendekati 0 → soal semakin sulit.
     st.plotly_chart(fig_cluster, use_container_width=True)
 
     # Ringkasan Cluster
-    st.subheader("Makna dan Karakteristik Tiap Cluster")
-
     cluster_summary = df.groupby("Cluster")["Total_Nilai"].agg(["count","mean"]).reset_index()
     cluster_summary.columns = ["Cluster","Jumlah Siswa","Rata-rata Nilai"]
 
@@ -274,7 +265,7 @@ Semakin mendekati 0 → soal semakin sulit.
     st.divider()
 
     # ======================================================
-    # G. KESIMPULAN BERBASIS DATA
+    # G. KESIMPULAN
     # ======================================================
     st.header("G. Kesimpulan")
 
@@ -294,7 +285,7 @@ Rata-rata kelas = {round(rata_kelas,2)}
 Median = {round(median_nilai,2)}  
 {proporsi_tinggi}% siswa berada di atas rata-rata.  
 
-Berdasarkan distribusi nilai dan proporsi tersebut,
+Berdasarkan distribusi skor per soal dan performa keseluruhan,
 tes dapat dikategorikan sebagai **{tingkat}**.
 """)
 
