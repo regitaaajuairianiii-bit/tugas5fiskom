@@ -1,102 +1,181 @@
 # =========================================
-# DASHBOARD ANALISIS SOAL SIMULASI
+# DASHBOARD ANALISIS SOAL - PREMIUM VERSION
 # =========================================
 
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-import statsmodels.api as sm
-import plotly.io as pio
 
-pio.templates.default = "plotly_white"
-
-# =========================
-# LOAD DATA
-# =========================
-df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
-data = df.select_dtypes(include=np.number)
-
-# =========================
-# STATISTIK UMUM
-# =========================
-jumlah_siswa = len(df)
-jumlah_soal = data.shape[1]
-rata_keseluruhan = round(data.mean().mean(), 2)
-
-print("Jumlah Siswa :", jumlah_siswa)
-print("Jumlah Soal  :", jumlah_soal)
-print("Rata-rata    :", rata_keseluruhan)
-
-# =========================
-# 1. HISTOGRAM NILAI TOTAL
-# =========================
-df["Total_Nilai"] = data.sum(axis=1)
-
-fig1 = px.histogram(
-    df,
-    x="Total_Nilai",
-    nbins=10,
-    title="Distribusi Total Nilai Siswa"
+# ===============================
+# PAGE CONFIG
+# ===============================
+st.set_page_config(
+    page_title="Edu Analytics Dashboard",
+    layout="wide"
 )
-fig1.show()
 
-# =========================
-# 2. RATA-RATA PER SOAL
-# =========================
-mean_per_soal = data.mean().sort_values()
+# ===============================
+# CUSTOM THEME
+# ===============================
+st.markdown("""
+    <style>
+    .main {
+        background-color: #F8FAFC;
+    }
+    h1, h2, h3 {
+        color: #1E3A8A;
+    }
+    .stMetric {
+        background-color: #FFFFFF;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.05);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-fig2 = px.bar(
-    x=mean_per_soal.index,
-    y=mean_per_soal.values,
-    title="Tingkat Kesulitan Soal (Rata-rata Skor)"
-)
-fig2.update_layout(
-    xaxis_title="Soal",
-    yaxis_title="Rata-rata Skor"
-)
-fig2.show()
+st.title("📊 Edu Analytics - Dashboard Analisis Soal")
+st.markdown("Analisis kualitas butir soal berbasis data simulasi")
 
-# =========================
-# 3. HEATMAP KORELASI
-# =========================
-corr = data.corr()
+# ===============================
+# FILE UPLOAD
+# ===============================
+uploaded_file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
-fig3 = px.imshow(
-    corr,
-    text_auto=True,
-    title="Korelasi Antar Soal",
-    zmin=-1,
-    zmax=1
-)
-fig3.show()
+if uploaded_file:
 
-# =========================
-# 4. CLUSTERING SISWA
-# =========================
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(data)
+    df = pd.read_excel(uploaded_file)
+    data = df.select_dtypes(include=np.number)
 
-kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-df["Cluster"] = kmeans.fit_predict(X_scaled)
+    # ===============================
+    # STATISTIK UMUM
+    # ===============================
+    jumlah_siswa = len(df)
+    jumlah_soal = data.shape[1]
+    rata_kelas = round(data.mean().mean(), 2)
 
-fig4 = px.scatter(
-    df,
-    x=data.columns[0],
-    y=data.columns[1],
-    color="Cluster",
-    title="Segmentasi Siswa"
-)
-fig4.show()
+    col1, col2, col3 = st.columns(3)
 
-# =========================
-# 5. REGRESI (VALIDITAS INTERNAL)
-# =========================
-X = sm.add_constant(data.iloc[:, :-1])
-y = data.iloc[:, -1]
+    col1.metric("Jumlah Siswa", jumlah_siswa)
+    col2.metric("Jumlah Soal", jumlah_soal)
+    col3.metric("Rata-rata Kelas", rata_kelas)
 
-model = sm.OLS(y, X).fit()
+    st.divider()
 
-print("\nR-Squared Model :", round(model.rsquared, 3))
+    # ===============================
+    # DISTRIBUSI NILAI TOTAL
+    # ===============================
+    st.subheader("📈 Distribusi Nilai Total")
+
+    df["Total_Nilai"] = data.sum(axis=1)
+
+    fig1 = px.histogram(
+        df,
+        x="Total_Nilai",
+        nbins=10,
+        color_discrete_sequence=["#1E3A8A"]
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+    st.divider()
+
+    # ===============================
+    # INDEKS KESUKARAN
+    # ===============================
+    st.subheader("📊 Analisis Indeks Kesukaran Soal")
+
+    mean_per_soal = data.mean()
+
+    def kategori_kesukaran(x):
+        if x >= 0.80:
+            return "Sangat Mudah"
+        elif x >= 0.60:
+            return "Mudah"
+        elif x >= 0.40:
+            return "Sedang"
+        elif x >= 0.20:
+            return "Sulit"
+        else:
+            return "Sangat Sulit"
+
+    indeks_df = pd.DataFrame({
+        "Soal": mean_per_soal.index,
+        "Indeks Kesukaran": mean_per_soal.values,
+        "Kategori": mean_per_soal.apply(kategori_kesukaran).values
+    }).sort_values("Indeks Kesukaran")
+
+    fig2 = px.bar(
+        indeks_df,
+        x="Soal",
+        y="Indeks Kesukaran",
+        color="Kategori",
+        color_discrete_map={
+            "Sangat Mudah": "#16A34A",
+            "Mudah": "#22C55E",
+            "Sedang": "#EAB308",
+            "Sulit": "#F97316",
+            "Sangat Sulit": "#DC2626"
+        }
+    )
+
+    st.plotly_chart(fig2, use_container_width=True)
+    st.dataframe(indeks_df, use_container_width=True)
+
+    st.info("Indeks kesukaran = proporsi siswa yang menjawab benar.")
+
+    st.divider()
+
+    # ===============================
+    # RADAR CHART KOMPETENSI
+    # ===============================
+    st.subheader("🕸 Radar Chart Kompetensi")
+
+    rata_per_soal = data.mean()
+
+    fig3 = go.Figure()
+
+    fig3.add_trace(go.Scatterpolar(
+        r=rata_per_soal.values,
+        theta=rata_per_soal.index,
+        fill='toself',
+        line=dict(color="#1E3A8A")
+    ))
+
+    fig3.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0,1])),
+        showlegend=False
+    )
+
+    st.plotly_chart(fig3, use_container_width=True)
+
+    st.success("Radar chart menunjukkan kekuatan dan kelemahan kompetensi pada tiap soal.")
+
+    st.divider()
+
+    # ===============================
+    # CLUSTERING SISWA
+    # ===============================
+    st.subheader("👥 Segmentasi Siswa")
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(data)
+
+    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+    df["Cluster"] = kmeans.fit_predict(X_scaled)
+
+    fig4 = px.scatter(
+        df,
+        x=data.columns[0],
+        y=data.columns[1],
+        color="Cluster",
+        color_continuous_scale="viridis"
+    )
+
+    st.plotly_chart(fig4, use_container_width=True)
+
+else:
+    st.warning("Silakan upload file Excel untuk memulai analisis.")
