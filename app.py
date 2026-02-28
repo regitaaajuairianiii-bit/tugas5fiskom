@@ -82,17 +82,34 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # B. DISTRIBUSI NILAI
-    # ======================================================
-    st.header("B. Distribusi Nilai Siswa")
+# B. DISTRIBUSI SOAL (RATA-RATA SKOR PER SOAL)
+# ======================================================
+st.header("B. Distribusi Soal (Rata-rata Skor per Soal)")
 
-    fig1 = px.histogram(
-        df,
-        x="Total_Nilai",
-        nbins=10,
-        color_discrete_sequence=["#94A3B8"]
-    )
-    st.plotly_chart(fig1, use_container_width=True)
+mean_per_soal = data.mean().reset_index()
+mean_per_soal.columns = ["Soal", "Rata-rata Skor"]
+
+fig1 = px.bar(
+    mean_per_soal,
+    x="Soal",
+    y="Rata-rata Skor",
+    color="Rata-rata Skor",
+    color_continuous_scale="Blues"
+)
+
+fig1.update_layout(
+    yaxis=dict(range=[0,1]),
+    xaxis_title="Nomor Soal",
+    yaxis_title="Rata-rata Skor"
+)
+
+st.plotly_chart(fig1, use_container_width=True)
+
+st.info("""
+Grafik ini menunjukkan tingkat kesukaran tiap soal.
+Semakin mendekati 1 → soal semakin mudah.
+Semakin mendekati 0 → soal semakin sulit.
+""")
 
     st.divider()
 
