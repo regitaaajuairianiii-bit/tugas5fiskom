@@ -1,73 +1,102 @@
-import streamlit as st
+# =========================================
+# DASHBOARD ANALISIS SOAL SIMULASI
+# =========================================
+
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import statsmodels.api as sm
+import plotly.io as pio
 
-st.set_page_config(page_title="Dashboard Edukatif", layout="wide")
+pio.templates.default = "plotly_white"
 
-st.title("📊 Dashboard Analisis Data Siswa")
-st.markdown("Visualisasi data berbasis Excel dengan desain pastel lembut & edukatif")
+# =========================
+# LOAD DATA
+# =========================
+df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
+data = df.select_dtypes(include=np.number)
 
-# ===============================
-# LOAD DATA (AMAN UNTUK CLOUD)
-# ===============================
-try:
-    df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
-    st.success(f"✅ Data berhasil dimuat: {df.shape[0]} baris, {df.shape[1]} kolom")
-except:
-    st.error("❌ File data_excel.xlsx tidak ditemukan. Pastikan sudah diupload ke repository.")
-    st.stop()
+# =========================
+# STATISTIK UMUM
+# =========================
+jumlah_siswa = len(df)
+jumlah_soal = data.shape[1]
+rata_keseluruhan = round(data.mean().mean(), 2)
 
-# ===============================
-# KPI
-# ===============================
-st.subheader("📌 Ringkasan Utama")
+print("Jumlah Siswa :", jumlah_siswa)
+print("Jumlah Soal  :", jumlah_soal)
+print("Rata-rata    :", rata_keseluruhan)
 
-col1, col2, col3 = st.columns(3)
+# =========================
+# 1. HISTOGRAM NILAI TOTAL
+# =========================
+df["Total_Nilai"] = data.sum(axis=1)
 
-col1.metric("👥 Jumlah Responden", df.shape[0])
-col2.metric("📄 Jumlah Variabel", df.shape[1])
-col3.metric("📊 Rata-rata Skor", f"{df.mean(numeric_only=True).mean():.2f}")
+fig1 = px.histogram(
+    df,
+    x="Total_Nilai",
+    nbins=10,
+    title="Distribusi Total Nilai Siswa"
+)
+fig1.show()
 
-st.divider()
+# =========================
+# 2. RATA-RATA PER SOAL
+# =========================
+mean_per_soal = data.mean().sort_values()
 
-# ===============================
-# RATA-RATA INDIKATOR
-# ===============================
-st.subheader("📈 Rata-rata Nilai Setiap Indikator")
+fig2 = px.bar(
+    x=mean_per_soal.index,
+    y=mean_per_soal.values,
+    title="Tingkat Kesulitan Soal (Rata-rata Skor)"
+)
+fig2.update_layout(
+    xaxis_title="Soal",
+    yaxis_title="Rata-rata Skor"
+)
+fig2.show()
 
-mean_values = df.mean(numeric_only=True)
+# =========================
+# 3. HEATMAP KORELASI
+# =========================
+corr = data.corr()
 
-fig, ax = plt.subplots(figsize=(8,5))
-colors = ["#A8DADC", "#FBC4AB", "#CDB4DB", "#BDE0FE"]
+fig3 = px.imshow(
+    corr,
+    text_auto=True,
+    title="Korelasi Antar Soal",
+    zmin=-1,
+    zmax=1
+)
+fig3.show()
 
-ax.bar(mean_values.index, mean_values.values, color=colors[:len(mean_values)])
+# =========================
+# 4. CLUSTERING SISWA
+# =========================
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(data)
 
-ax.set_ylabel("Rata-rata Nilai")
-ax.set_title("Visualisasi Rata-rata Indikator")
-ax.grid(axis="y", linestyle="--", alpha=0.5)
+kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+df["Cluster"] = kmeans.fit_predict(X_scaled)
 
-for i, v in enumerate(mean_values.values):
-    ax.text(i, v + 0.05, f"{v:.2f}", ha="center")
+fig4 = px.scatter(
+    df,
+    x=data.columns[0],
+    y=data.columns[1],
+    color="Cluster",
+    title="Segmentasi Siswa"
+)
+fig4.show()
 
-st.pyplot(fig)
+# =========================
+# 5. REGRESI (VALIDITAS INTERNAL)
+# =========================
+X = sm.add_constant(data.iloc[:, :-1])
+y = data.iloc[:, -1]
 
-st.divider()
+model = sm.OLS(y, X).fit()
 
-# ===============================
-# DISTRIBUSI
-# ===============================
-st.subheader("📊 Distribusi Nilai")
-
-selected_col = st.selectbox("Pilih indikator:", mean_values.index)
-
-fig2, ax2 = plt.subplots(figsize=(7,4))
-ax2.hist(df[selected_col], bins=10, color="#BDE0FE", edgecolor="black")
-
-ax2.set_title(f"Distribusi {selected_col}")
-ax2.set_xlabel("Nilai")
-ax2.set_ylabel("Frekuensi")
-
-st.pyplot(fig2)
-
-st.success("🎯 Dashboard siap digunakan!")
+print("\nR-Squared Model :", round(model.rsquared, 3))
