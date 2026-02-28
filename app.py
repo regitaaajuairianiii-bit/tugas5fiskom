@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # ===============================
-# SOFT STYLE
+# STYLE SOFT ACADEMIC
 # ===============================
 st.markdown("""
     <style>
@@ -34,9 +34,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ===============================
-# HEADER
-# ===============================
 st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 
 st.markdown("""
@@ -102,7 +99,7 @@ if uploaded_file:
     # ======================================================
     st.header("C. Analisis Per Soal")
 
-    total_score = data.sum(axis=1)
+    total_score = df["Total_Nilai"]
     hasil_item = []
 
     for col in data.columns:
@@ -134,27 +131,19 @@ if uploaded_file:
 
     soal_pilih = st.selectbox("🎯 Pilih Soal untuk Analisis Detail", data.columns)
 
-    skor_soal = data[soal_pilih]
-
     colA, colB = st.columns(2)
 
     fig_dist = px.histogram(
-        skor_soal,
+        data[soal_pilih],
         nbins=5,
         color_discrete_sequence=["#A5B4FC"]
     )
-    fig_dist.update_layout(title=f"Distribusi Jawaban {soal_pilih}")
     colA.plotly_chart(fig_dist, use_container_width=True)
 
     fig_scatter = px.scatter(
         x=total_score,
-        y=skor_soal,
+        y=data[soal_pilih],
         color_discrete_sequence=["#FBCFE8"]
-    )
-    fig_scatter.update_layout(
-        title=f"Hubungan {soal_pilih} dengan Total Nilai",
-        xaxis_title="Total Nilai",
-        yaxis_title="Skor Soal"
     )
     colB.plotly_chart(fig_scatter, use_container_width=True)
 
@@ -166,18 +155,13 @@ if uploaded_file:
     st.header("D. Korelasi Antar Soal")
 
     corr = data.corr()
-
-    fig_corr = px.imshow(
-        corr,
-        text_auto=True,
-        color_continuous_scale="Blues"
-    )
+    fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale="Blues")
     st.plotly_chart(fig_corr, use_container_width=True)
 
     st.divider()
 
     # ======================================================
-    # E. SEGMENTASI SISWA (K-Means + PCA)
+    # E. SEGMENTASI SISWA (FINAL UPGRADE)
     # ======================================================
     st.header("E. Segmentasi Siswa")
 
@@ -185,16 +169,14 @@ if uploaded_file:
     X_scaled = scaler.fit_transform(data)
 
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    cluster_labels = kmeans.fit_predict(X_scaled)
-    df["Cluster"] = cluster_labels
+    df["Cluster"] = kmeans.fit_predict(X_scaled)
 
     pca = PCA(n_components=2)
-    principal_components = pca.fit_transform(X_scaled)
-
+    components = pca.fit_transform(X_scaled)
     explained_var = pca.explained_variance_ratio_
 
     pca_df = pd.DataFrame(
-        principal_components,
+        components,
         columns=[
             f"PC1 ({round(explained_var[0]*100,2)}%)",
             f"PC2 ({round(explained_var[1]*100,2)}%)"
@@ -203,12 +185,8 @@ if uploaded_file:
 
     pca_df["Cluster"] = df["Cluster"].astype(str)
 
-    # Centroid
     centroids_pca = pca.transform(kmeans.cluster_centers_)
-    centroid_df = pd.DataFrame(
-        centroids_pca,
-        columns=pca_df.columns[:2]
-    )
+    centroid_df = pd.DataFrame(centroids_pca, columns=pca_df.columns[:2])
 
     fig_cluster = px.scatter(
         pca_df,
@@ -228,28 +206,30 @@ if uploaded_file:
         )
     )
 
-    fig_cluster.update_layout(
-        title="Visualisasi Hasil Clustering Siswa Menggunakan K-Means dengan Proyeksi PCA",
-        template="plotly_white"
-    )
-
     st.plotly_chart(fig_cluster, use_container_width=True)
 
-    # Ringkasan cluster
-    st.subheader("Ringkasan Karakteristik Cluster")
+    # ======================================================
+    # KARAKTERISTIK CLUSTER
+    # ======================================================
+    st.subheader("Makna dan Karakteristik Tiap Cluster")
 
-    df["Total_Nilai"] = data.sum(axis=1)
+    cluster_summary = df.groupby("Cluster")["Total_Nilai"].agg(["count","mean"]).reset_index()
+    cluster_summary.columns = ["Cluster","Jumlah Siswa","Rata-rata Total Nilai"]
 
-    cluster_summary = df.groupby("Cluster")["Total_Nilai"].agg(
-        ["count","mean"]
-    ).reset_index()
+    mean_global = df["Total_Nilai"].mean()
+    std_global = df["Total_Nilai"].std()
 
-    cluster_summary.columns = ["Cluster", "Jumlah Siswa", "Rata-rata Total Nilai"]
+    def kategori_cluster(x):
+        if x >= mean_global + 0.3*std_global:
+            return "Siswa Berprestasi"
+        elif x <= mean_global - 0.3*std_global:
+            return "Perlu Pendampingan"
+        else:
+            return "Siswa Stabil"
 
-    cluster_summary["Kategori"] = cluster_summary["Rata-rata Total Nilai"].apply(
-        lambda x: "Performa Tinggi"
-        if x >= df["Total_Nilai"].mean()
-        else "Perlu Pendampingan"
+    cluster_summary["Keterangan"] = cluster_summary["Rata-rata Total Nilai"].apply(kategori_cluster)
+    cluster_summary["Persentase (%)"] = round(
+        cluster_summary["Jumlah Siswa"]/jumlah_siswa*100,2
     )
 
     st.dataframe(cluster_summary, use_container_width=True)
@@ -258,18 +238,10 @@ if uploaded_file:
         cluster_summary,
         names="Cluster",
         values="Jumlah Siswa",
-        color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
+        color_discrete_sequence=["#A5B4FC","#FBCFE8","#86EFAC"]
     )
 
     st.plotly_chart(fig_pie, use_container_width=True)
-
-    st.info("""
-Interpretasi:
-- PC1 dan PC2 menunjukkan proporsi variasi data yang berhasil direduksi.
-- Cluster dengan rata-rata tinggi menunjukkan kelompok siswa berprestasi.
-- Cluster dengan rata-rata rendah memerlukan strategi remedial.
-- Centroid menunjukkan pusat karakteristik tiap kelompok.
-""")
 
     st.divider()
 
@@ -282,8 +254,7 @@ Interpretasi:
         X = sm.add_constant(data.iloc[:, :-1])
         y = data.iloc[:, -1]
         model = sm.OLS(y, X).fit()
-        r2 = round(model.rsquared, 3)
-        st.metric("R-Squared Model", r2)
+        st.metric("R-Squared Model", round(model.rsquared,3))
 
     st.divider()
 
@@ -292,12 +263,10 @@ Interpretasi:
     # ======================================================
     st.header("G. Kesimpulan dan Saran")
 
-    rata_global = data.mean().mean()
-
-    if rata_global >= 0.75:
+    if rata_kelas >= 0.75:
         kesimpulan = "Tes cenderung mudah."
-    elif rata_global >= 0.5:
-        kesimpulan = "Tes berada pada tingkat kesulitan sedang."
+    elif rata_kelas >= 0.5:
+        kesimpulan = "Tes tingkat kesulitan sedang."
     else:
         kesimpulan = "Tes cenderung sulit."
 
@@ -307,7 +276,7 @@ Interpretasi:
 Saran:
 - Pertahankan soal dengan daya pembeda tinggi
 - Revisi soal dengan korelasi rendah
-- Gunakan hasil clustering untuk strategi remedial
+- Gunakan hasil clustering untuk strategi diferensiasi pembelajaran
 """)
 
 else:
