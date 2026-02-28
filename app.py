@@ -98,7 +98,7 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # C. ANALISIS PER SOAL (INTERAKTIF)
+    # C. ANALISIS PER SOAL
     # ======================================================
     st.header("C. Analisis Per Soal")
 
@@ -132,7 +132,6 @@ if uploaded_file:
     item_df = pd.DataFrame(hasil_item)
     st.dataframe(item_df, use_container_width=True)
 
-    # Pilih soal
     soal_pilih = st.selectbox("🎯 Pilih Soal untuk Analisis Detail", data.columns)
 
     skor_soal = data[soal_pilih]
@@ -178,7 +177,7 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # E. SEGMENTASI SISWA (PCA + CLUSTERING)
+    # E. SEGMENTASI SISWA (K-Means + PCA)
     # ======================================================
     st.header("E. Segmentasi Siswa")
 
@@ -187,53 +186,90 @@ if uploaded_file:
 
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
     cluster_labels = kmeans.fit_predict(X_scaled)
+    df["Cluster"] = cluster_labels
 
-    df["Cluster"] = cluster_labels.astype(str)
-
-    # PCA
     pca = PCA(n_components=2)
     principal_components = pca.fit_transform(X_scaled)
 
+    explained_var = pca.explained_variance_ratio_
+
     pca_df = pd.DataFrame(
         principal_components,
-        columns=["PC1", "PC2"]
+        columns=[
+            f"PC1 ({round(explained_var[0]*100,2)}%)",
+            f"PC2 ({round(explained_var[1]*100,2)}%)"
+        ]
     )
 
-    pca_df["Cluster"] = df["Cluster"]
+    pca_df["Cluster"] = df["Cluster"].astype(str)
+
+    # Centroid
+    centroids_pca = pca.transform(kmeans.cluster_centers_)
+    centroid_df = pd.DataFrame(
+        centroids_pca,
+        columns=pca_df.columns[:2]
+    )
 
     fig_cluster = px.scatter(
         pca_df,
-        x="PC1",
-        y="PC2",
+        x=pca_df.columns[0],
+        y=pca_df.columns[1],
         color="Cluster",
         color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
     )
 
+    fig_cluster.add_trace(
+        go.Scatter(
+            x=centroid_df.iloc[:,0],
+            y=centroid_df.iloc[:,1],
+            mode="markers",
+            marker=dict(symbol="x", size=18, color="black"),
+            name="Centroid"
+        )
+    )
+
     fig_cluster.update_layout(
-        title="Visualisasi Cluster Siswa (PCA Projection)",
+        title="Visualisasi Hasil Clustering Siswa Menggunakan K-Means dengan Proyeksi PCA",
         template="plotly_white"
     )
 
     st.plotly_chart(fig_cluster, use_container_width=True)
 
-    # Distribusi cluster
-    st.subheader("Distribusi Kelompok Siswa")
+    # Ringkasan cluster
+    st.subheader("Ringkasan Karakteristik Cluster")
 
-    cluster_count = df["Cluster"].value_counts().reset_index()
-    cluster_count.columns = ["Cluster", "Jumlah"]
-    cluster_count["Persentase (%)"] = round(
-        cluster_count["Jumlah"] / jumlah_siswa * 100, 2
+    df["Total_Nilai"] = data.sum(axis=1)
+
+    cluster_summary = df.groupby("Cluster")["Total_Nilai"].agg(
+        ["count","mean"]
+    ).reset_index()
+
+    cluster_summary.columns = ["Cluster", "Jumlah Siswa", "Rata-rata Total Nilai"]
+
+    cluster_summary["Kategori"] = cluster_summary["Rata-rata Total Nilai"].apply(
+        lambda x: "Performa Tinggi"
+        if x >= df["Total_Nilai"].mean()
+        else "Perlu Pendampingan"
     )
 
+    st.dataframe(cluster_summary, use_container_width=True)
+
     fig_pie = px.pie(
-        cluster_count,
+        cluster_summary,
         names="Cluster",
-        values="Jumlah",
+        values="Jumlah Siswa",
         color_discrete_sequence=["#A5B4FC", "#FBCFE8", "#86EFAC"]
     )
 
     st.plotly_chart(fig_pie, use_container_width=True)
-    st.dataframe(cluster_count, use_container_width=True)
+
+    st.info("""
+Interpretasi:
+- PC1 dan PC2 menunjukkan proporsi variasi data yang berhasil direduksi.
+- Cluster dengan rata-rata tinggi menunjukkan kelompok siswa berprestasi.
+- Cluster dengan rata-rata rendah memerlukan strategi remedial.
+- Centroid menunjukkan pusat karakteristik tiap kelompok.
+""")
 
     st.divider()
 
@@ -268,11 +304,11 @@ if uploaded_file:
     st.success(f"Kesimpulan: {kesimpulan}")
 
     st.info("""
-    Saran:
-    - Pertahankan soal dengan daya pembeda tinggi
-    - Revisi soal dengan korelasi rendah
-    - Gunakan hasil clustering untuk strategi remedial
-    """)
+Saran:
+- Pertahankan soal dengan daya pembeda tinggi
+- Revisi soal dengan korelasi rendah
+- Gunakan hasil clustering untuk strategi remedial
+""")
 
 else:
     st.warning("Silakan upload file Excel untuk memulai analisis.")
