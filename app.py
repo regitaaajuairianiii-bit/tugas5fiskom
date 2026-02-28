@@ -1,5 +1,5 @@
 # =========================================
-# DASHBOARD ANALISIS SOAL - PREMIUM VERSION
+# EDU ANALYTICS DASHBOARD - PRESENTATION VERSION
 # =========================================
 
 import streamlit as st
@@ -9,41 +9,23 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+import statsmodels.api as sm
+
+st.set_page_config(page_title="Edu Analytics Dashboard", layout="wide")
 
 # ===============================
-# PAGE CONFIG
-# ===============================
-st.set_page_config(
-    page_title="Edu Analytics Dashboard",
-    layout="wide"
-)
-
-# ===============================
-# CUSTOM THEME
+# STYLE
 # ===============================
 st.markdown("""
     <style>
-    .main {
-        background-color: #F8FAFC;
-    }
-    h1, h2, h3 {
-        color: #1E3A8A;
-    }
-    .stMetric {
-        background-color: #FFFFFF;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0px 2px 8px rgba(0,0,0,0.05);
-    }
+    .main {background-color: #F8FAFC;}
+    h1, h2, h3 {color: #1E3A8A;}
     </style>
 """, unsafe_allow_html=True)
 
 st.title("📊 Edu Analytics - Dashboard Analisis Soal")
-st.markdown("Analisis kualitas butir soal berbasis data simulasi")
+st.markdown("Dashboard analisis kualitas butir soal untuk kebutuhan evaluasi pembelajaran")
 
-# ===============================
-# FILE UPLOAD
-# ===============================
 uploaded_file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
 if uploaded_file:
@@ -51,25 +33,39 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file)
     data = df.select_dtypes(include=np.number)
 
-    # ===============================
-    # STATISTIK UMUM
-    # ===============================
+    if data.shape[1] == 0:
+        st.error("File tidak memiliki kolom numerik.")
+        st.stop()
+
+    # ======================================================
+    # A. STATISTIK UMUM
+    # ======================================================
+    st.header("A. Statistik Umum")
+
     jumlah_siswa = len(df)
     jumlah_soal = data.shape[1]
     rata_kelas = round(data.mean().mean(), 2)
+    nilai_tertinggi = data.max().max()
+    nilai_terendah = data.min().min()
 
-    col1, col2, col3 = st.columns(3)
-
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Jumlah Siswa", jumlah_siswa)
     col2.metric("Jumlah Soal", jumlah_soal)
-    col3.metric("Rata-rata Kelas", rata_kelas)
+    col3.metric("Rata-rata", rata_kelas)
+    col4.metric("Nilai Tertinggi", nilai_tertinggi)
+    col5.metric("Nilai Terendah", nilai_terendah)
+
+    st.info("""
+    Statistik umum memberikan gambaran performa kelas secara keseluruhan.
+    Digunakan untuk melihat kualitas hasil tes secara global.
+    """)
 
     st.divider()
 
-    # ===============================
-    # DISTRIBUSI NILAI TOTAL
-    # ===============================
-    st.subheader("📈 Distribusi Nilai Total")
+    # ======================================================
+    # B. DISTRIBUSI NILAI SISWA
+    # ======================================================
+    st.header("B. Distribusi Nilai Siswa")
 
     df["Total_Nilai"] = data.sum(axis=1)
 
@@ -81,85 +77,66 @@ if uploaded_file:
     )
     st.plotly_chart(fig1, use_container_width=True)
 
+    st.markdown("""
+    **Tujuan Analisis:**
+    - Melihat apakah nilai menyebar normal  
+    - Mengidentifikasi dominasi nilai rendah/tinggi  
+    - Menilai apakah tes terlalu mudah atau sulit  
+    """)
+
     st.divider()
 
-    # ===============================
-    # INDEKS KESUKARAN
-    # ===============================
-    st.subheader("📊 Analisis Indeks Kesukaran Soal")
+    # ======================================================
+    # C. TINGKAT KESULITAN SOAL
+    # ======================================================
+    st.header("C. Tingkat Kesulitan Soal")
 
     mean_per_soal = data.mean()
 
-    def kategori_kesukaran(x):
-        if x >= 0.80:
-            return "Sangat Mudah"
-        elif x >= 0.60:
-            return "Mudah"
-        elif x >= 0.40:
-            return "Sedang"
-        elif x >= 0.20:
-            return "Sulit"
-        else:
-            return "Sangat Sulit"
-
-    indeks_df = pd.DataFrame({
-        "Soal": mean_per_soal.index,
-        "Indeks Kesukaran": mean_per_soal.values,
-        "Kategori": mean_per_soal.apply(kategori_kesukaran).values
-    }).sort_values("Indeks Kesukaran")
-
     fig2 = px.bar(
-        indeks_df,
-        x="Soal",
-        y="Indeks Kesukaran",
-        color="Kategori",
-        color_discrete_map={
-            "Sangat Mudah": "#16A34A",
-            "Mudah": "#22C55E",
-            "Sedang": "#EAB308",
-            "Sulit": "#F97316",
-            "Sangat Sulit": "#DC2626"
-        }
+        x=mean_per_soal.index,
+        y=mean_per_soal.values,
+        title="Rata-rata Skor per Soal"
     )
-
     st.plotly_chart(fig2, use_container_width=True)
-    st.dataframe(indeks_df, use_container_width=True)
 
-    st.info("Indeks kesukaran = proporsi siswa yang menjawab benar.")
+    st.markdown("""
+    **Interpretasi:**
+    - Mean mendekati 1 → Soal mudah  
+    - Mean mendekati 0 → Soal sulit  
+    """)
 
     st.divider()
 
-    # ===============================
-    # RADAR CHART KOMPETENSI
-    # ===============================
-    st.subheader("🕸 Radar Chart Kompetensi")
+    # ======================================================
+    # D. KORELASI ANTAR SOAL
+    # ======================================================
+    st.header("D. Korelasi Antar Soal")
 
-    rata_per_soal = data.mean()
+    corr = data.corr()
 
-    fig3 = go.Figure()
-
-    fig3.add_trace(go.Scatterpolar(
-        r=rata_per_soal.values,
-        theta=rata_per_soal.index,
-        fill='toself',
-        line=dict(color="#1E3A8A")
-    ))
-
-    fig3.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0,1])),
-        showlegend=False
+    fig3 = px.imshow(
+        corr,
+        text_auto=True,
+        zmin=-1,
+        zmax=1,
+        color_continuous_scale="RdBu"
     )
-
     st.plotly_chart(fig3, use_container_width=True)
 
-    st.success("Radar chart menunjukkan kekuatan dan kelemahan kompetensi pada tiap soal.")
+    st.markdown("""
+    **Tujuan:**
+    - Melihat apakah soal mengukur kompetensi yang sama  
+    - Mendeteksi soal redundan  
+    - Menguji konsistensi antar butir  
+    """)
 
     st.divider()
 
-    # ===============================
-    # CLUSTERING SISWA
-    # ===============================
-    st.subheader("👥 Segmentasi Siswa")
+    # ======================================================
+    # E. SEGMENTASI SISWA
+    # ======================================================
+    st.header("E. Segmentasi Siswa (Clustering)")
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(data)
@@ -174,8 +151,39 @@ if uploaded_file:
         color="Cluster",
         color_continuous_scale="viridis"
     )
-
     st.plotly_chart(fig4, use_container_width=True)
+
+    st.markdown("""
+    **Tujuan:**
+    - Mengelompokkan siswa kemampuan tinggi, sedang, rendah  
+    - Dasar strategi remedial dan pengayaan  
+    """)
+
+    st.divider()
+
+    # ======================================================
+    # F. ANALISIS DAYA PREDIKSI (REGRESI)
+    # ======================================================
+    st.header("F. Analisis Daya Prediksi (Regresi)")
+
+    if data.shape[1] > 1:
+        X = sm.add_constant(data.iloc[:, :-1])
+        y = data.iloc[:, -1]
+
+        model = sm.OLS(y, X).fit()
+        r2 = round(model.rsquared, 3)
+
+        st.metric("R-Squared Model", r2)
+
+        st.markdown("""
+        **Tujuan:**
+        - Mengidentifikasi soal yang representatif  
+        - Menilai validitas internal tes  
+        - R² mendekati 1 → hubungan kuat antar soal  
+        """)
+
+    else:
+        st.warning("Jumlah soal minimal 2 untuk analisis regresi.")
 
 else:
     st.warning("Silakan upload file Excel untuk memulai analisis.")
