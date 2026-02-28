@@ -12,7 +12,7 @@ st.markdown("Visualisasi data berbasis Excel dengan desain pastel lembut & eduka
 # LOAD DATA (AMAN UNTUK CLOUD)
 # ===============================
 try:
-    df = pd.read_excel("data_excel.xlsx")
+    df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
     st.success(f"✅ Data berhasil dimuat: {df.shape[0]} baris, {df.shape[1]} kolom")
 except:
     st.error("❌ File data_excel.xlsx tidak ditemukan. Pastikan sudah diupload ke repository.")
