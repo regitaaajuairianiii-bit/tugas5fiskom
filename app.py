@@ -181,7 +181,110 @@ if uploaded_file:
         - Menilai validitas internal tes  
         - R² mendekati 1 → hubungan kuat antar soal  
         """)
+    # ======================================================
+    # G. ANALISIS PER SOAL (ITEM ANALYSIS)
+    # ======================================================
+    st.header("G. Analisis Per Soal (Item Analysis)")
 
+    # Total skor siswa
+    total_score = data.sum(axis=1)
+
+    hasil_item = []
+
+    for col in data.columns:
+        skor_item = data[col]
+        
+        # Indeks Kesukaran
+        p_value = skor_item.mean()
+
+        # Daya Pembeda (kelompok atas & bawah 27%)
+        df_temp = pd.DataFrame({
+            "item": skor_item,
+            "total": total_score
+        }).sort_values("total", ascending=False)
+
+        n = int(len(df_temp) * 0.27)
+
+        kelompok_atas = df_temp.head(n)["item"].mean()
+        kelompok_bawah = df_temp.tail(n)["item"].mean()
+
+        discrimination = kelompok_atas - kelompok_bawah
+
+        # Korelasi item-total
+        item_total_corr = skor_item.corr(total_score)
+
+        hasil_item.append({
+            "Soal": col,
+            "Indeks Kesukaran": round(p_value, 3),
+            "Daya Pembeda": round(discrimination, 3),
+            "Korelasi Item-Total": round(item_total_corr, 3)
+        })
+
+    item_df = pd.DataFrame(hasil_item)
+
+    # Kategori kesukaran
+    def kategori_kesukaran(x):
+        if x >= 0.80:
+            return "Sangat Mudah"
+        elif x >= 0.60:
+            return "Mudah"
+        elif x >= 0.40:
+            return "Sedang"
+        elif x >= 0.20:
+            return "Sulit"
+        else:
+            return "Sangat Sulit"
+
+    item_df["Kategori Kesukaran"] = item_df["Indeks Kesukaran"].apply(kategori_kesukaran)
+
+    # Kategori daya pembeda
+    def kategori_discrimination(x):
+        if x >= 0.40:
+            return "Sangat Baik"
+        elif x >= 0.30:
+            return "Baik"
+        elif x >= 0.20:
+            return "Cukup"
+        elif x >= 0.00:
+            return "Kurang"
+        else:
+            return "Sangat Jelek"
+
+    item_df["Kategori Daya Pembeda"] = item_df["Daya Pembeda"].apply(kategori_discrimination)
+
+    st.dataframe(item_df, use_container_width=True)
+
+    st.markdown("""
+    **Interpretasi:**
+
+    • Indeks Kesukaran → proporsi siswa yang menjawab benar  
+    • Daya Pembeda → kemampuan soal membedakan siswa pintar & kurang  
+    • Korelasi Item-Total → konsistensi soal terhadap tes secara keseluruhan  
+
+    Soal ideal:
+    - Indeks Kesukaran sedang (0.3 – 0.7)
+    - Daya Pembeda ≥ 0.3
+    - Korelasi Item-Total positif & cukup tinggi
+    """)
+
+    st.divider()
+
+    # ======================================================
+    # VISUALISASI PER SOAL
+    # ======================================================
+    st.subheader("Visualisasi Analisis Per Soal")
+
+    pilih_soal = st.selectbox("Pilih Soal", data.columns)
+
+    fig_item = px.histogram(
+        df,
+        x=pilih_soal,
+        nbins=2,
+        title=f"Distribusi Jawaban {pilih_soal}"
+    )
+
+    st.plotly_chart(fig_item, use_container_width=True)
+    
     else:
         st.warning("Jumlah soal minimal 2 untuk analisis regresi.")
 
