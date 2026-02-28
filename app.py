@@ -39,8 +39,8 @@ st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 st.markdown("""
 ### 👤 Identitas Mahasiswa  
 **Nama : Regita Juairiani**  
-**NIM : __________________**  
-**Kelas : __________________**  
+**NIM : 06111282429048**  
+**Kelas : B / Indralaya**  
 **Mata Kuliah : Fisika Komputasi**
 """)
 
