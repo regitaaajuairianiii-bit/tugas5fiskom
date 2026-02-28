@@ -82,7 +82,7 @@ if uploaded_file:
     st.divider()
 
     # ======================================================
-    # B. DISTRIBUSI SOAL (RATA-RATA SKOR PER SOAL)
+    # B. DISTRIBUSI SOAL (DINAMIS SESUAI DATA)
     # ======================================================
     st.header("B. Distribusi Soal (Rata-rata Skor per Soal)")
 
@@ -97,15 +97,19 @@ if uploaded_file:
         color_continuous_scale="Blues"
     )
 
+    max_mean = mean_per_soal["Rata-rata Skor"].max()
+
     fig1.update_layout(
-        yaxis=dict(range=[0,1]),
+        yaxis=dict(range=[0, max_mean + 0.05]),
         xaxis_title="Nomor Soal",
         yaxis_title="Rata-rata Skor"
     )
 
+    fig1.update_traces(texttemplate='%{y:.2f}', textposition='outside')
+
     st.plotly_chart(fig1, use_container_width=True)
 
-    st.info("Mean mendekati 1 → soal mudah | Mendekati 0 → soal sulit")
+    st.info("Mean mendekati nilai maksimum → soal mudah | Mendekati 0 → soal sulit")
 
     st.divider()
 
@@ -176,12 +180,10 @@ if uploaded_file:
         inertia.append(model.inertia_)
         silhouette_scores.append(silhouette_score(X_scaled, labels))
 
-    st.plotly_chart(px.line(x=list(K_range), y=inertia, markers=True,
-                            title="Elbow Method"),
+    st.plotly_chart(px.line(x=list(K_range), y=inertia, markers=True),
                     use_container_width=True)
 
-    st.plotly_chart(px.line(x=list(K_range), y=silhouette_scores, markers=True,
-                            title="Silhouette Score"),
+    st.plotly_chart(px.line(x=list(K_range), y=silhouette_scores, markers=True),
                     use_container_width=True)
 
     st.divider()
@@ -227,55 +229,18 @@ if uploaded_file:
 
     st.plotly_chart(fig_cluster, use_container_width=True)
 
-    # Ringkasan Cluster
-    cluster_summary = df.groupby("Cluster")["Total_Nilai"].agg(["count","mean"]).reset_index()
-    cluster_summary.columns = ["Cluster","Jumlah Siswa","Rata-rata Nilai"]
+    st.divider()
+
+    # ======================================================
+    # F. KESIMPULAN
+    # ======================================================
+    st.header("F. Kesimpulan")
 
     mean_global = df["Total_Nilai"].mean()
-    std_global = df["Total_Nilai"].std()
 
-    def kategori(x):
-        if x >= mean_global + 0.3*std_global:
-            return "Siswa Berprestasi"
-        elif x <= mean_global - 0.3*std_global:
-            return "Perlu Pendampingan"
-        else:
-            return "Siswa Stabil"
-
-    cluster_summary["Keterangan"] = cluster_summary["Rata-rata Nilai"].apply(kategori)
-    cluster_summary["Persentase (%)"] = round(
-        cluster_summary["Jumlah Siswa"]/jumlah_siswa*100,2
-    )
-
-    st.dataframe(cluster_summary, use_container_width=True)
-
-    st.divider()
-
-    # ======================================================
-    # F. REGRESI
-    # ======================================================
-    st.header("F. Analisis Regresi")
-
-    if data.shape[1] > 1:
-        X = sm.add_constant(data.iloc[:,:-1])
-        y = data.iloc[:,-1]
-        model = sm.OLS(y,X).fit()
-        st.metric("R-Squared Model", round(model.rsquared,3))
-
-    st.divider()
-
-    # ======================================================
-    # G. KESIMPULAN
-    # ======================================================
-    st.header("G. Kesimpulan")
-
-    proporsi_tinggi = round(
-        (df["Total_Nilai"] > mean_global).mean()*100,2
-    )
-
-    if rata_kelas >= data.shape[1]*0.75:
+    if rata_kelas >= jumlah_soal * 0.75:
         tingkat = "cenderung mudah"
-    elif rata_kelas >= data.shape[1]*0.5:
+    elif rata_kelas >= jumlah_soal * 0.5:
         tingkat = "tingkat kesulitan sedang"
     else:
         tingkat = "cenderung sulit"
@@ -283,9 +248,9 @@ if uploaded_file:
     st.success(f"""
 Rata-rata kelas = {round(rata_kelas,2)}  
 Median = {round(median_nilai,2)}  
-{proporsi_tinggi}% siswa berada di atas rata-rata.  
 
-Berdasarkan distribusi skor per soal dan performa keseluruhan,
+Distribusi skor per soal menunjukkan variasi tingkat kesukaran.
+Berdasarkan rata-rata keseluruhan dan sebaran skor,
 tes dapat dikategorikan sebagai **{tingkat}**.
 """)
 
