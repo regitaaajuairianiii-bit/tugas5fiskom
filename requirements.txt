@@ -1,9 +1,6 @@
-plotly
 streamlit
+pyngrok
 pandas
 numpy
 matplotlib
-scikit-learn
-statsmodels
 openpyxl
-
