@@ -1,5 +1,5 @@
 # =========================================
-# EDU ANALYTICS DASHBOARD - PRESENTATION VERSION
+# DASHBOARD ANALISIS DATA SIMULASI SISWA
 # =========================================
 
 import streamlit as st
@@ -11,21 +11,54 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
 
-st.set_page_config(page_title="Edu Analytics Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Dashboard Analisis Data Simulasi Siswa",
+    layout="wide"
+)
 
 # ===============================
-# STYLE
+# CUSTOM STYLE MODERN
 # ===============================
 st.markdown("""
     <style>
-    .main {background-color: #F8FAFC;}
-    h1, h2, h3 {color: #1E3A8A;}
+    .main {
+        background: linear-gradient(to right, #EEF2FF, #F8FAFC);
+    }
+    h1 {
+        color: #1E3A8A;
+        text-align: center;
+        font-weight: 700;
+    }
+    h2, h3 {
+        color: #3730A3;
+    }
+    .stMetric {
+        background-color: white;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.08);
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Edu Analytics - Dashboard Analisis Soal")
-st.markdown("Dashboard analisis kualitas butir soal untuk kebutuhan evaluasi pembelajaran")
+# ===============================
+# HEADER
+# ===============================
+st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 
+st.markdown("""
+### 👤 Identitas Mahasiswa  
+**Nama : Regita Juairiani**  
+**NIM : __________________**  
+**Kelas : __________________**  
+**Mata Kuliah : Fisika Komputasi**
+""")
+
+st.markdown("---")
+
+# ===============================
+# FILE UPLOAD
+# ===============================
 uploaded_file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
 if uploaded_file:
@@ -55,11 +88,6 @@ if uploaded_file:
     col4.metric("Nilai Tertinggi", nilai_tertinggi)
     col5.metric("Nilai Terendah", nilai_terendah)
 
-    st.info("""
-    Statistik umum memberikan gambaran performa kelas secara keseluruhan.
-    Digunakan untuk melihat kualitas hasil tes secara global.
-    """)
-
     st.divider()
 
     # ======================================================
@@ -73,16 +101,10 @@ if uploaded_file:
         df,
         x="Total_Nilai",
         nbins=10,
-        color_discrete_sequence=["#1E3A8A"]
+        color_discrete_sequence=["#4F46E5"]
     )
+    fig1.update_layout(template="plotly_white")
     st.plotly_chart(fig1, use_container_width=True)
-
-    st.markdown("""
-    **Tujuan Analisis:**
-    - Melihat apakah nilai menyebar normal  
-    - Mengidentifikasi dominasi nilai rendah/tinggi  
-    - Menilai apakah tes terlalu mudah atau sulit  
-    """)
 
     st.divider()
 
@@ -96,15 +118,12 @@ if uploaded_file:
     fig2 = px.bar(
         x=mean_per_soal.index,
         y=mean_per_soal.values,
+        color=mean_per_soal.values,
+        color_continuous_scale="Blues",
         title="Rata-rata Skor per Soal"
     )
+    fig2.update_layout(template="plotly_white")
     st.plotly_chart(fig2, use_container_width=True)
-
-    st.markdown("""
-    **Interpretasi:**
-    - Mean mendekati 1 → Soal mudah  
-    - Mean mendekati 0 → Soal sulit  
-    """)
 
     st.divider()
 
@@ -120,16 +139,10 @@ if uploaded_file:
         text_auto=True,
         zmin=-1,
         zmax=1,
-        color_continuous_scale="RdBu"
+        color_continuous_scale="RdBu_r"
     )
+    fig3.update_layout(template="plotly_white")
     st.plotly_chart(fig3, use_container_width=True)
-
-    st.markdown("""
-    **Tujuan:**
-    - Melihat apakah soal mengukur kompetensi yang sama  
-    - Mendeteksi soal redundan  
-    - Menguji konsistensi antar butir  
-    """)
 
     st.divider()
 
@@ -149,15 +162,10 @@ if uploaded_file:
         x=data.columns[0],
         y=data.columns[1],
         color="Cluster",
-        color_continuous_scale="viridis"
+        color_continuous_scale="Plasma"
     )
+    fig4.update_layout(template="plotly_white")
     st.plotly_chart(fig4, use_container_width=True)
-
-    st.markdown("""
-    **Tujuan:**
-    - Mengelompokkan siswa kemampuan tinggi, sedang, rendah  
-    - Dasar strategi remedial dan pengayaan  
-    """)
 
     st.divider()
 
@@ -174,30 +182,23 @@ if uploaded_file:
         r2 = round(model.rsquared, 3)
 
         st.metric("R-Squared Model", r2)
+    else:
+        st.warning("Jumlah soal minimal 2 untuk analisis regresi.")
 
-        st.markdown("""
-        **Tujuan:**
-        - Mengidentifikasi soal yang representatif  
-        - Menilai validitas internal tes  
-        - R² mendekati 1 → hubungan kuat antar soal  
-        """)
-    # ======================================================
-    # G. ANALISIS PER SOAL (ITEM ANALYSIS)
-    # ======================================================
-    st.header("G. Analisis Per Soal (Item Analysis)")
+    st.divider()
 
-    # Total skor siswa
+    # ======================================================
+    # G. ANALISIS PER SOAL
+    # ======================================================
+    st.header("G. Analisis Per Soal")
+
     total_score = data.sum(axis=1)
-
     hasil_item = []
 
     for col in data.columns:
         skor_item = data[col]
-        
-        # Indeks Kesukaran
         p_value = skor_item.mean()
 
-        # Daya Pembeda (kelompok atas & bawah 27%)
         df_temp = pd.DataFrame({
             "item": skor_item,
             "total": total_score
@@ -209,8 +210,6 @@ if uploaded_file:
         kelompok_bawah = df_temp.tail(n)["item"].mean()
 
         discrimination = kelompok_atas - kelompok_bawah
-
-        # Korelasi item-total
         item_total_corr = skor_item.corr(total_score)
 
         hasil_item.append({
@@ -222,57 +221,11 @@ if uploaded_file:
 
     item_df = pd.DataFrame(hasil_item)
 
-    # Kategori kesukaran
-    def kategori_kesukaran(x):
-        if x >= 0.80:
-            return "Sangat Mudah"
-        elif x >= 0.60:
-            return "Mudah"
-        elif x >= 0.40:
-            return "Sedang"
-        elif x >= 0.20:
-            return "Sulit"
-        else:
-            return "Sangat Sulit"
-
-    item_df["Kategori Kesukaran"] = item_df["Indeks Kesukaran"].apply(kategori_kesukaran)
-
-    # Kategori daya pembeda
-    def kategori_discrimination(x):
-        if x >= 0.40:
-            return "Sangat Baik"
-        elif x >= 0.30:
-            return "Baik"
-        elif x >= 0.20:
-            return "Cukup"
-        elif x >= 0.00:
-            return "Kurang"
-        else:
-            return "Sangat Jelek"
-
-    item_df["Kategori Daya Pembeda"] = item_df["Daya Pembeda"].apply(kategori_discrimination)
-
     st.dataframe(item_df, use_container_width=True)
-
-    st.markdown("""
-    **Interpretasi:**
-
-    • Indeks Kesukaran → proporsi siswa yang menjawab benar  
-    • Daya Pembeda → kemampuan soal membedakan siswa pintar & kurang  
-    • Korelasi Item-Total → konsistensi soal terhadap tes secara keseluruhan  
-
-    Soal ideal:
-    - Indeks Kesukaran sedang (0.3 – 0.7)
-    - Daya Pembeda ≥ 0.3
-    - Korelasi Item-Total positif & cukup tinggi
-    """)
 
     st.divider()
 
-    # ======================================================
-    # VISUALISASI PER SOAL
-    # ======================================================
-    st.subheader("Visualisasi Analisis Per Soal")
+    st.subheader("Visualisasi Per Soal")
 
     pilih_soal = st.selectbox("Pilih Soal", data.columns)
 
@@ -280,13 +233,10 @@ if uploaded_file:
         df,
         x=pilih_soal,
         nbins=2,
-        title=f"Distribusi Jawaban {pilih_soal}"
+        color_discrete_sequence=["#9333EA"]
     )
-
+    fig_item.update_layout(template="plotly_white")
     st.plotly_chart(fig_item, use_container_width=True)
-    
-    else:
-        st.warning("Jumlah soal minimal 2 untuk analisis regresi.")
 
 else:
     st.warning("Silakan upload file Excel untuk memulai analisis.")
