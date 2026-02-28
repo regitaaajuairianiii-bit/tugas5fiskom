@@ -25,8 +25,8 @@ st.set_page_config(
 # ===============================
 st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 st.markdown("**Nama : Regita Juairiani**")
-st.markdown("**NIM :**")
-st.markdown("**Kelas :**")
+st.markdown("**NIM  : 06111282429048**")
+st.markdown("**Kelas : B / Indralaya**")
 st.markdown("**Mata Kuliah : Fisika Komputasi**")
 st.divider()
 
