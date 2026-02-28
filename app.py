@@ -17,25 +17,28 @@ st.set_page_config(
 )
 
 # ===============================
-# CUSTOM STYLE MODERN
+# STYLE COLOURFUL
 # ===============================
 st.markdown("""
     <style>
     .main {
-        background: linear-gradient(to right, #EEF2FF, #F8FAFC);
+        background: linear-gradient(to right, #fdfbfb, #ebedee);
     }
     h1 {
-        color: #1E3A8A;
         text-align: center;
         font-weight: 700;
+        color: #1D4ED8;
     }
-    h2, h3 {
-        color: #3730A3;
+    h2 {
+        color: #7C3AED;
+    }
+    h3 {
+        color: #DB2777;
     }
     .stMetric {
-        background-color: white;
+        background: linear-gradient(135deg, #ffffff, #f0f9ff);
         padding: 15px;
-        border-radius: 12px;
+        border-radius: 15px;
         box-shadow: 0px 4px 15px rgba(0,0,0,0.08);
     }
     </style>
@@ -49,16 +52,13 @@ st.title("📊 DASHBOARD ANALISIS DATA SIMULASI SISWA")
 st.markdown("""
 ### 👤 Identitas Mahasiswa  
 **Nama : Regita Juairiani**  
-**NIM : __________________**  
-**Kelas : __________________**  
+**NIM : 06111282429048**  
+**Kelas : B / Indralaya**  
 **Mata Kuliah : Fisika Komputasi**
 """)
 
 st.markdown("---")
 
-# ===============================
-# FILE UPLOAD
-# ===============================
 uploaded_file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
 if uploaded_file:
@@ -101,96 +101,16 @@ if uploaded_file:
         df,
         x="Total_Nilai",
         nbins=10,
-        color_discrete_sequence=["#4F46E5"]
+        color_discrete_sequence=["#F59E0B"]
     )
-    fig1.update_layout(template="plotly_white")
     st.plotly_chart(fig1, use_container_width=True)
 
     st.divider()
 
     # ======================================================
-    # C. TINGKAT KESULITAN SOAL
+    # C. ANALISIS PER SOAL (DIPINDAHKAN)
     # ======================================================
-    st.header("C. Tingkat Kesulitan Soal")
-
-    mean_per_soal = data.mean()
-
-    fig2 = px.bar(
-        x=mean_per_soal.index,
-        y=mean_per_soal.values,
-        color=mean_per_soal.values,
-        color_continuous_scale="Blues",
-        title="Rata-rata Skor per Soal"
-    )
-    fig2.update_layout(template="plotly_white")
-    st.plotly_chart(fig2, use_container_width=True)
-
-    st.divider()
-
-    # ======================================================
-    # D. KORELASI ANTAR SOAL
-    # ======================================================
-    st.header("D. Korelasi Antar Soal")
-
-    corr = data.corr()
-
-    fig3 = px.imshow(
-        corr,
-        text_auto=True,
-        zmin=-1,
-        zmax=1,
-        color_continuous_scale="RdBu_r"
-    )
-    fig3.update_layout(template="plotly_white")
-    st.plotly_chart(fig3, use_container_width=True)
-
-    st.divider()
-
-    # ======================================================
-    # E. SEGMENTASI SISWA
-    # ======================================================
-    st.header("E. Segmentasi Siswa (Clustering)")
-
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(data)
-
-    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    df["Cluster"] = kmeans.fit_predict(X_scaled)
-
-    fig4 = px.scatter(
-        df,
-        x=data.columns[0],
-        y=data.columns[1],
-        color="Cluster",
-        color_continuous_scale="Plasma"
-    )
-    fig4.update_layout(template="plotly_white")
-    st.plotly_chart(fig4, use_container_width=True)
-
-    st.divider()
-
-    # ======================================================
-    # F. ANALISIS DAYA PREDIKSI (REGRESI)
-    # ======================================================
-    st.header("F. Analisis Daya Prediksi (Regresi)")
-
-    if data.shape[1] > 1:
-        X = sm.add_constant(data.iloc[:, :-1])
-        y = data.iloc[:, -1]
-
-        model = sm.OLS(y, X).fit()
-        r2 = round(model.rsquared, 3)
-
-        st.metric("R-Squared Model", r2)
-    else:
-        st.warning("Jumlah soal minimal 2 untuk analisis regresi.")
-
-    st.divider()
-
-    # ======================================================
-    # G. ANALISIS PER SOAL
-    # ======================================================
-    st.header("G. Analisis Per Soal")
+    st.header("C. Analisis Per Soal")
 
     total_score = data.sum(axis=1)
     hasil_item = []
@@ -225,18 +145,103 @@ if uploaded_file:
 
     st.divider()
 
-    st.subheader("Visualisasi Per Soal")
+    # ======================================================
+    # D. TINGKAT KESULITAN SOAL
+    # ======================================================
+    st.header("D. Tingkat Kesulitan Soal")
 
-    pilih_soal = st.selectbox("Pilih Soal", data.columns)
+    mean_per_soal = data.mean()
 
-    fig_item = px.histogram(
-        df,
-        x=pilih_soal,
-        nbins=2,
-        color_discrete_sequence=["#9333EA"]
+    fig2 = px.bar(
+        x=mean_per_soal.index,
+        y=mean_per_soal.values,
+        color=mean_per_soal.values,
+        color_continuous_scale="Turbo"
     )
-    fig_item.update_layout(template="plotly_white")
-    st.plotly_chart(fig_item, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True)
+
+    st.divider()
+
+    # ======================================================
+    # E. KORELASI ANTAR SOAL
+    # ======================================================
+    st.header("E. Korelasi Antar Soal")
+
+    corr = data.corr()
+
+    fig3 = px.imshow(
+        corr,
+        text_auto=True,
+        color_continuous_scale="Spectral",
+        zmin=-1,
+        zmax=1
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+
+    st.divider()
+
+    # ======================================================
+    # F. SEGMENTASI SISWA
+    # ======================================================
+    st.header("F. Segmentasi Siswa")
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(data)
+
+    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+    df["Cluster"] = kmeans.fit_predict(X_scaled)
+
+    fig4 = px.scatter(
+        df,
+        x=data.columns[0],
+        y=data.columns[1],
+        color="Cluster",
+        color_continuous_scale="Rainbow"
+    )
+    st.plotly_chart(fig4, use_container_width=True)
+
+    st.divider()
+
+    # ======================================================
+    # G. REGRESI
+    # ======================================================
+    st.header("G. Analisis Daya Prediksi (Regresi)")
+
+    if data.shape[1] > 1:
+        X = sm.add_constant(data.iloc[:, :-1])
+        y = data.iloc[:, -1]
+
+        model = sm.OLS(y, X).fit()
+        r2 = round(model.rsquared, 3)
+
+        st.metric("R-Squared Model", r2)
+
+    st.divider()
+
+    # ======================================================
+    # H. KESIMPULAN OTOMATIS
+    # ======================================================
+    st.header("H. Kesimpulan dan Saran")
+
+    rata_global = data.mean().mean()
+
+    if rata_global >= 0.75:
+        kesimpulan = "Tes cenderung mudah bagi mayoritas siswa."
+    elif rata_global >= 0.5:
+        kesimpulan = "Tes berada pada tingkat kesulitan sedang."
+    else:
+        kesimpulan = "Tes cenderung sulit bagi siswa."
+
+    saran = """
+    • Pertahankan soal dengan daya pembeda tinggi  
+    • Revisi soal dengan korelasi item-total rendah  
+    • Seimbangkan kembali tingkat kesulitan agar distribusi nilai lebih normal  
+    • Gunakan hasil clustering untuk strategi remedial dan pengayaan  
+    """
+
+    st.success(f"Kesimpulan: {kesimpulan}")
+    st.info("Saran Perbaikan:")
+    st.write(saran)
 
 else:
     st.warning("Silakan upload file Excel untuk memulai analisis.")
