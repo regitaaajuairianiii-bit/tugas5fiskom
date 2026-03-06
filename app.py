@@ -6,7 +6,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -76,12 +75,12 @@ if uploaded_file:
         nbins=10,
         color_discrete_sequence=["#6C8EBF"]
     )
-    st.plotly_chart(fig_hist, use_container_width=True)
 
+    st.plotly_chart(fig_hist, use_container_width=True)
     st.divider()
 
     # ===============================
-    # C. DISTRIBUSI SOAL (RATA-RATA)
+    # C. DISTRIBUSI SOAL
     # ===============================
     st.header("C. Distribusi Soal (Rata-rata Skor per Soal)")
 
@@ -94,12 +93,12 @@ if uploaded_file:
         color=mean_per_soal.values,
         color_continuous_scale="Blues"
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
 
+    st.plotly_chart(fig_bar, use_container_width=True)
     st.divider()
 
     # ===============================
-    # D. ANALISIS PER SOAL INTERAKTIF
+    # D. ANALISIS PER SOAL
     # ===============================
     st.header("D. Analisis Per Soal")
 
@@ -111,20 +110,78 @@ if uploaded_file:
         nbins=5,
         color_discrete_sequence=["#A8DADC"]
     )
+
     st.plotly_chart(fig_item, use_container_width=True)
+    st.divider()
+
+    # ===============================
+    # E. ANALISIS GAP SOAL
+    # ===============================
+    st.header("E. Analisis Gap Soal")
+
+    max_score = data.max().max()
+
+    gap_soal = max_score - mean_per_soal
+
+    gap_df = pd.DataFrame({
+        "Soal": mean_per_soal.index,
+        "Rata-rata Skor": mean_per_soal.values,
+        "Gap": gap_soal.values
+    })
+
+    fig_gap = px.bar(
+        gap_df,
+        x="Soal",
+        y="Gap",
+        color="Gap",
+        color_continuous_scale="Oranges",
+        title="Gap antara Skor Maksimum dan Rata-rata Soal"
+    )
+
+    st.plotly_chart(fig_gap, use_container_width=True)
+    st.dataframe(gap_df, use_container_width=True)
+
+    st.info("""
+Gap menunjukkan selisih antara skor maksimum dengan rata-rata skor soal.
+Semakin besar gap, semakin banyak siswa yang belum menguasai soal tersebut.
+""")
 
     st.divider()
 
     # ===============================
-    # E. SEGMENTASI SISWA
+    # F. KORELASI ANTAR SOAL
     # ===============================
-    st.header("E. Segmentasi Siswa (K-Means + PCA)")
+    st.header("F. Korelasi Antar Soal")
+
+    corr_matrix = data.corr()
+
+    fig_corr = px.imshow(
+        corr_matrix,
+        text_auto=True,
+        aspect="auto",
+        color_continuous_scale="RdBu_r"
+    )
+
+    st.plotly_chart(fig_corr, use_container_width=True)
+
+    st.info("""
+Heatmap ini menunjukkan korelasi antar soal.
+Korelasi tinggi menunjukkan dua soal kemungkinan mengukur kompetensi yang sama.
+""")
+
+    st.divider()
+
+    # ===============================
+    # G. SEGMENTASI SISWA
+    # ===============================
+    st.header("G. Segmentasi Siswa (K-Means + PCA)")
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(data)
 
     # Elbow Method
     inertia = []
+
     for k in range(1,6):
         km = KMeans(n_clusters=k, random_state=42, n_init=10)
         km.fit(X_scaled)
@@ -134,17 +191,20 @@ if uploaded_file:
         x=range(1,6),
         y=inertia,
         markers=True,
-        labels={"x": "Jumlah Cluster", "y": "Inertia"},
+        labels={"x":"Jumlah Cluster","y":"Inertia"},
         title="Elbow Method"
     )
+
     st.plotly_chart(fig_elbow, use_container_width=True)
 
     # Clustering
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
     cluster = kmeans.fit_predict(X_scaled)
+
     df["Cluster"] = cluster
 
     silhouette = silhouette_score(X_scaled, cluster)
+
     st.write(f"Silhouette Score: {round(silhouette,3)}")
 
     # PCA
@@ -164,30 +224,36 @@ if uploaded_file:
         title=f"PCA Projection (PC1={round(explained_var[0]*100,1)}%, PC2={round(explained_var[1]*100,1)}%)",
         color_discrete_sequence=["#8ECAE6","#219EBC","#023047"]
     )
+
     st.plotly_chart(fig_cluster, use_container_width=True)
 
-    # Distribusi Cluster
+    # Pie cluster
     cluster_count = df["Cluster"].value_counts().sort_index()
+
     fig_pie = px.pie(
         values=cluster_count.values,
         names=[f"Cluster {i}" for i in cluster_count.index],
         color_discrete_sequence=["#8ECAE6","#219EBC","#023047"]
     )
+
     st.plotly_chart(fig_pie, use_container_width=True)
 
-    # Interpretasi Cluster
+    # Interpretasi cluster
     st.subheader("Makna dan Karakteristik Tiap Cluster")
 
     cluster_mean = df.groupby("Cluster")["Total_Nilai"].mean()
 
     interpretasi = []
+
     for i in cluster_mean.index:
+
         if cluster_mean[i] > rata_kelas:
             ket = "Kelompok siswa dengan performa tinggi"
         elif cluster_mean[i] < rata_kelas:
             ket = "Kelompok siswa dengan performa rendah"
         else:
             ket = "Kelompok siswa dengan performa sedang"
+
         interpretasi.append([i, round(cluster_mean[i],2), ket])
 
     interpretasi_df = pd.DataFrame(
@@ -200,11 +266,11 @@ if uploaded_file:
     st.divider()
 
     # ===============================
-    # F. KESIMPULAN ANALITIS
+    # H. KESIMPULAN
     # ===============================
-    st.header("F. Kesimpulan Analitis")
+    st.header("H. Kesimpulan Analitis")
 
-    persen_diatas_rata = (df["Total_Nilai"] > rata_kelas).mean() * 100
+    persen_diatas_rata = (df["Total_Nilai"] > rata_kelas).mean()*100
 
     if persen_diatas_rata > 65:
         kategori_tes = "Tes tergolong mudah"
